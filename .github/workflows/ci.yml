@@ -1,0 +1,16 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint skills
+        run: ./scripts/lint.sh
+      - name: Check README table is up to date
+        run: ./scripts/update-readme.sh --check
