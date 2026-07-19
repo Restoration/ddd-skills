@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
-# claude-skills インストーラ
+# ddd-skills インストーラ
 # リポジトリを単一の真実源として、スキルを symlink で配置する。
 # 使い方:
-#   ./install.sh <skill>... [--global | --project <path>] [--copy]
-#   ./install.sh all        [--global | --project <path>] [--copy]
+#   ./install.sh <skill>... [--global | --project <path>] [--copy] [--force]
+#   ./install.sh all        [--global | --project <path>] [--copy] [--force]
 #   ./install.sh status     [--project <path>]
 #   ./install.sh uninstall <skill>... [--global | --project <path>]
+# 配置先に実体ディレクトリ（コピー配置・手置きのスキル）がある場合は
+# --force を付けない限り上書きしない。
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GLOBAL_SKILLS_DIR="${HOME}/.claude/skills"
 
 usage() {
-  sed -n '2,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  # シェバン直後から最初の非コメント行までがヘッダコメント = usage
+  awk 'NR > 1 { if (!/^#/) exit; sub(/^# ?/, ""); print }' "${BASH_SOURCE[0]}"
   exit "${1:-0}"
 }
 
@@ -34,6 +37,7 @@ SKILLS=()
 TARGET_DIR="${GLOBAL_SKILLS_DIR}"
 TARGET_LABEL="global (~/.claude/skills)"
 MODE="link"
+FORCE=0
 
 args=("$@")
 [ $# -eq 0 ] && usage 1
@@ -57,6 +61,7 @@ while [ $i -lt ${#args[@]} ]; do
       TARGET_LABEL="project (${proj%/}/.claude/skills)"
       ;;
     --copy)  MODE="copy" ;;
+    --force) FORCE=1 ;;
     -h|--help) usage 0 ;;
     -*)      echo "error: 不明なオプション: ${args[$i]}" >&2; usage 1 ;;
     all)     SKILLS=($(list_skills)) ;;
@@ -71,8 +76,9 @@ done
 # ---- status ---------------------------------------------------------------
 if [ "${COMMAND}" = "status" ]; then
   echo "配置先: ${TARGET_LABEL}"
-  printf '%-24s %s\n' "スキル" "状態"
-  printf '%-24s %s\n' "------" "----"
+  # 見出しは ASCII にする（printf の桁揃えはバイト数基準で、マルチバイトだと列がずれる）
+  printf '%-24s %s\n' "skill" "state"
+  printf '%-24s %s\n' "-----" "-----"
   for skill in $(list_skills); do
     dest="${TARGET_DIR}/${skill}"
     if [ -L "${dest}" ]; then
@@ -116,6 +122,18 @@ if [ "${COMMAND}" = "uninstall" ]; then
 fi
 
 # ---- install --------------------------------------------------------------
+# 配置先の実体ディレクトリ（コピー配置や手置きのスキル）は確認なしに消さない。
+# 途中で止まって配置が中途半端にならないよう、先に全件検査してから配置する。
+if [ "${FORCE}" -ne 1 ]; then
+  for skill in "${SKILLS[@]}"; do
+    dest="${TARGET_DIR}/${skill}"
+    if [ ! -L "${dest}" ] && [ -d "${dest}" ]; then
+      echo "error: ${dest} は実体ディレクトリです（コピー配置または手置き）。上書きするなら --force を付けてください" >&2
+      exit 1
+    fi
+  done
+fi
+
 mkdir -p "${TARGET_DIR}"
 for skill in "${SKILLS[@]}"; do
   dest="${TARGET_DIR}/${skill}"

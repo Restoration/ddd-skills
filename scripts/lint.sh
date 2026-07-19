@@ -10,6 +10,7 @@
 #   7. ディレクトリ名が kebab-case か
 #   8. allowed-tools: がカンマ区切り1行か（YAML リスト形式でないか）
 #   9. disable-model-invocation: の値が true か
+#  10. README 内の相対 markdown リンクが実在するファイルを指しているか
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -113,6 +114,18 @@ for dir in "${REPO_DIR}"/*/; do
     fi
   done < <(grep -o '](\([^)]*\))' "${skill_md}" 2>/dev/null | sed 's/^](//; s/)$//' || true)
 done
+
+# 10. README 内の相対リンク切れ（表以外の prose 部分も含む）
+while IFS= read -r link; do
+  case "${link}" in
+    http://*|https://*|/*|\#*) continue ;;
+  esac
+  target="${link%%#*}"
+  [ -z "${target}" ] && continue
+  if [ ! -e "${REPO_DIR}/${target}" ]; then
+    fail "README.md: リンク切れ: ${link}"
+  fi
+done < <(grep -o '](\([^)]*\))' "${REPO_DIR}/README.md" 2>/dev/null | sed 's/^](//; s/)$//' || true)
 
 # README の表に、存在しないスキルが残っていないか
 while IFS= read -r listed; do
