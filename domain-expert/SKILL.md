@@ -1,5 +1,6 @@
 ---
 name: domain-expert
+version: 0.1.0
 description: プロジェクトの仕様と実装を読み込み、そのドメインの知識ブリーフを抽出してメモリに永続化する。ユビキタス言語・中核エンティティ・ビジネスルール/不変条件・主要ワークフロー・境界づけられたコンテキストを構造化し、以後は根拠づけされたドメインエキスパートとして file:line 引用付きで質問に答える。「このプロジェクトのドメインを取り込んで」「ドメインを学んで」「仕様を読んでエキスパートになって」「〜の業務ルールを教えて」「このドメインについて質問」と依頼されたとき、または蓄積したドメイン知識に基づく回答を求められたときに使う。
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent
 ---
@@ -19,7 +20,7 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent
 ドメイン知識は**現在のプロジェクトのメモリディレクトリ**に永続化する:
 
 ```
-~/.claude/projects/<プロジェクトパスのスラッシュを-に置換>/memory/
+~/.claude/projects/<プロジェクトパスの / や . 等の記号を - に置換>/memory/
 ```
 
 （例: `/home/user/Repos/foo` → `~/.claude/projects/-home-user-Repos-foo/memory/`）

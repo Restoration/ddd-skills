@@ -3,7 +3,7 @@ name: ddd-pm
 version: 0.1.0
 description: プロジェクトマネージャーとして大きな依頼を計画・見積もりし、タスク分解したバックログをメモリに永続化して進捗を管理するスキル。実行フェーズでは各タスクを ddd-orchestrate に順次ディスパッチして完了判定・記録まで面倒を見、求めに応じて進捗・リスク・ブロッカーの状況報告を生成する。`/ddd-pm <依頼>` と明示的に依頼されたときに使う。
 disable-model-invocation: true
-allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, Skill, AskUserQuestion
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, AskUserQuestion
 ---
 
 # ddd-pm — プロジェクトマネージャー
@@ -27,7 +27,7 @@ allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, Skill, AskUserQuestio
 ## 状態の永続化
 
 PM の状態は**現在のプロジェクトのメモリディレクトリ**
-（`~/.claude/projects/<プロジェクトパスのスラッシュを-に置換>/memory/`）に置く:
+（`~/.claude/projects/<プロジェクトパスの / や . 等の記号を - に置換>/memory/`）に置く:
 
 - `pm-backlog.md` — バックログ本体（`templates/BACKLOG.md` が雛形）。ゴール・
   マイルストーン・タスク・意思決定履歴を1枚に保つ
@@ -75,17 +75,26 @@ PM の状態は**現在のプロジェクトのメモリディレクトリ**
    報告）。`pm-backlog.md` を読み、依存がすべて `done` の `todo` タスクのうち
    最上位を選ぶ。見積もり `L` のタスクは着手前に分割して（PLAN の規律で）
    ユーザーに提示する
-2. **ディスパッチ** — 選んだタスクを Skill tool で `ddd-orchestrate` に渡す。
-   引数にはタスクのタイトル・受け入れ基準・依存タスクで決まった前提を書き切る
-   （ddd-orchestrate 側はこの会話の細部を知らない前提で書く）。着手時に
+2. **ブランチ位置の決定** — 選んだタスクが未マージの `done` タスクの成果に
+   依存するなら、そのタスクのブランチ（メモに記録済み）に checkout して積む。
+   依存しないならデフォルトブランチに戻ってから着手する（ddd-orchestrate が
+   新しい `ddd/<slug>` を切る）。積み先のブランチ名はタスクのメモに記録する。
+   ブランチのマージ・push は PM も行わない — ユーザーの判断に委ねる
+3. **ディスパッチ** — `ddd-orchestrate` は `/` 専用（`disable-model-invocation`）
+   のため Skill tool では起動できない。`../ddd-orchestrate/SKILL.md`（無ければ
+   プロジェクト `.claude/skills/ddd-orchestrate/SKILL.md` → グローバル
+   `~/.claude/skills/ddd-orchestrate/SKILL.md` の順に探す）を Read で読み込み、
+   このセッションがオーケストレーターとしてその手順を実行する。タスクの
+   タイトル・受け入れ基準・依存タスクで決まった前提は作業ブリーフに書き切る
+   （サブエージェントはこの会話の細部を知らない前提で書く）。着手時に
    バックログの状態を `doing` に更新する
-3. **完了判定** — ddd-orchestrate の報告を受けたら、**done-check を自分でも
+4. **完了判定** — ddd-orchestrate の報告を受けたら、**done-check を自分でも
    再実行して**受け入れ基準を確認する（報告の鵜呑みにしない）:
    - 合格 → 状態を `done` にし、ブランチ名・コミット・残った Low 指摘をタスクの
      メモに記録する
    - 不合格・3周失敗 → 状態を `blocked` にし、何が残っているかをメモに記録して
      **停止**。ユーザーに判断を委ねる（勝手に次のタスクへ進まない）
-4. **継続判定** — 指示が「N件」「続けて」なら次のタスクへ（常に1件ずつ直列 —
+5. **継続判定** — 指示が「N件」「続けて」なら次のタスクへ（常に1件ずつ直列 —
    同一 working tree のため並列ディスパッチはしない）。指示がなければ1件で止めて
    結果を報告する
 
@@ -98,6 +107,8 @@ PM の状態は**現在のプロジェクトのメモリディレクトリ**
 - 記録にある事実だけを書く。進捗率などの数字はタスク数ベース（done/全体）でのみ
   出し、体感の割合を作らない
 - ブロッカーは「何が」「なぜ」「解消に必要な判断/情報」の形で書く
+- 報告を出したら `pm-backlog.md` の「意思決定・変更履歴」に
+  `YYYY-MM-DD: 状況報告` を1行追記する — 次回の「前回報告以降」はこの行を基準にする
 
 ## ガードレール
 

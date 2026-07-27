@@ -27,7 +27,7 @@ allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, AskUserQuestion
 |------|------|------|
 | オーケストレーター（このセッション） | — | ドメインブリーフの読み込み、作業ブリーフの作成、エージェントの起動と判定、差し戻し制御、done-check の再実行、最終報告 |
 | 実装者 | general-purpose（書き込み可） | 作業ブリーフに沿ったドメインモデル・ユースケースの実装。既存テストを green に保つ |
-| レビュアー | general-purpose（**読み取り専用を指示**） | 差分を DDD の観点（ddd-review の検査軸）でレビューし、実害シナリオ付きの指摘を返す |
+| レビュアー | 読み取り専用タイプ（Explore 等）があれば優先。無ければ general-purpose に**読み取り専用を指示** | 差分を DDD の観点（ddd-review の検査軸）でレビューし、実害シナリオ付きの指摘を返す |
 | テスター | general-purpose（テストのみ書き込み可） | 作業ブリーフの不変条件・受け入れ基準を突くテストを追加・実行し、pass/fail を返す |
 
 レビュアーとテスターは実装完了後に**並列起動**する（1メッセージで2体同時に）。
@@ -47,7 +47,7 @@ allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, AskUserQuestion
 ### 2. ドメインブリーフの読み込み
 
 現在のプロジェクトのメモリディレクトリ
-（`~/.claude/projects/<プロジェクトパスのスラッシュを-に置換>/memory/`）から
+（`~/.claude/projects/<プロジェクトパスの / や . 等の記号を - に置換>/memory/`）から
 `domain-*.md` を読む。
 
 **ブリーフが無い場合**は AskUserQuestion で選んでもらう:
@@ -85,7 +85,9 @@ allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, AskUserQuestion
 2. **レビュー + テスト（並列）** — 実装者の完了後、`templates/REVIEWER.md` と
    `templates/TESTER.md` からプロンプトを組み、2体を1メッセージで同時起動する。
    レビュアーには読み取り専用（ファイル変更禁止）を、テスターにはテストファイル
-   以外の変更禁止を必ず指示する
+   以外の変更禁止を必ず指示する。レビュー対象の差分は**未コミット**（コミットは
+   締めの1回だけ）なので、`git diff <base>...HEAD` のようなコミット済み範囲では
+   なく、working tree を含む `git diff <base>` の形で指定する
 3. **判定** — オーケストレーターが結果を突き合わせる:
    - テスト失敗、または High / Medium のレビュー指摘が1件でもあれば**差し戻し**。
      指摘とテスト結果を要約した差し戻しブリーフを作り、次サイクルへ

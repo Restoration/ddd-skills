@@ -35,6 +35,8 @@ CI が同じチェックを走らせるので、忘れるとビルドが落ち�
 
 `tests/fixtures/<skill-name>/` に違反を仕込んだサンプルコードと `EXPECTED.md`（期待される指摘一覧）がある。スキルの検査軸や足切り基準を変えたら、`/スキル名 tests/fixtures/<skill-name>/` を実行して EXPECTED.md と突き合わせ、検出漏れ・過剰指摘が出ていないか確認する。検査軸を追加したらフィクスチャにも対応する違反例と EXPECTED.md のエントリを追加する。
 
+ddd-review の検査軸・足切り基準を変えたら、`ddd-orchestrate/templates/REVIEWER.md` に内蔵された要約（サブエージェント用に自己完結化した写し）も同期する。
+
 ## コミット規約
 
 subject は英語で「Add/Fix/Rename <対象>: <要約>」の形（`git log --oneline` 参照）。
