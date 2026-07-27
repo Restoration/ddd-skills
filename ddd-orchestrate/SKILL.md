@@ -1,7 +1,7 @@
 ---
 name: ddd-orchestrate
-version: 0.1.0
-description: DDD の開発サイクルを実装者・レビュアー・テスターの3体のサブエージェントで回すオーケストレーションスキル。domain-expert が永続化したドメイン知識ブリーフを各エージェントのプロンプトに注入し、実装 → DDD 観点レビュー + テストの差し戻しループを合格まで（上限3周）回して結果を報告する。`/ddd-orchestrate <タスク>` と明示的に依頼されたときに使う。
+version: 0.2.0
+description: DDD の開発サイクルを実装者（software-engineer）・レビュアー（ddd-review）・テスター（qa-engineer）の3体のペルソナ付きサブエージェントで回すオーケストレーションスキル。domain-expert が永続化したドメイン知識ブリーフを各エージェントのプロンプトに注入し、実装 → DDD 観点レビュー + QA テストの差し戻しループを合格まで（上限3周）回して結果を報告する。`/ddd-orchestrate <タスク>` と明示的に依頼されたときに使う。
 disable-model-invocation: true
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, AskUserQuestion
 ---
@@ -10,9 +10,16 @@ allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, AskUserQuestion
 
 このセッションが**オーケストレーター**となり、依頼されたタスクを Agent tool の
 サブエージェント3体 — **実装者（implementer）・レビュアー（reviewer）・
-テスター（tester）** — に分担させて DDD の開発サイクルを回す。ドメイン知識は
+テスター（tester）** — に分担させて DDD の開発サイクルを回す。各役割の作業規律は
+同リポジトリのペルソナスキル — [software-engineer](../software-engineer/SKILL.md)・
+[ddd-review](../ddd-review/SKILL.md)・[qa-engineer](../qa-engineer/SKILL.md) — に
+委ね、プロンプトから参照させる（下記「ペルソナスキルの解決」）。ドメイン知識は
 [domain-expert](../domain-expert/SKILL.md) スキルが永続化したブリーフ
 （メモリの `domain-*.md`）から**作業ブリーフ**に翻訳して各エージェントへ注入する。
+
+複数タスクの計画・バックログ管理・進捗報告は上位の
+[ddd-pm](../ddd-pm/SKILL.md) が担い、そこから1タスクずつ本スキルに
+ディスパッチされることもある（本スキルは常に1タスク = 1ランに徹する）。
 
 ```
 /ddd-orchestrate <タスクの説明>
@@ -23,15 +30,29 @@ allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, AskUserQuestion
 
 ## 役割分担
 
-| 役割 | 種別 | 責務 |
-|------|------|------|
-| オーケストレーター（このセッション） | — | ドメインブリーフの読み込み、作業ブリーフの作成、エージェントの起動と判定、差し戻し制御、done-check の再実行、最終報告 |
-| 実装者 | general-purpose（書き込み可） | 作業ブリーフに沿ったドメインモデル・ユースケースの実装。既存テストを green に保つ |
-| レビュアー | 読み取り専用タイプ（Explore 等）があれば優先。無ければ general-purpose に**読み取り専用を指示** | 差分を DDD の観点（ddd-review の検査軸）でレビューし、実害シナリオ付きの指摘を返す |
-| テスター | general-purpose（テストのみ書き込み可） | 作業ブリーフの不変条件・受け入れ基準を突くテストを追加・実行し、pass/fail を返す |
+| 役割 | 種別 | ペルソナスキル | 責務 |
+|------|------|---------------|------|
+| オーケストレーター（このセッション） | — | —（domain-expert のブリーフを利用） | ドメインブリーフの読み込み、作業ブリーフの作成、エージェントの起動と判定、差し戻し制御、done-check の再実行、最終報告 |
+| 実装者 | general-purpose（書き込み可） | software-engineer（BUILD。差し戻しで失敗テストの修正が中心なら FIX） | 作業ブリーフに沿ったドメインモデル・ユースケースの実装。既存テストを green に保つ |
+| レビュアー | 読み取り専用タイプ（Explore 等）があれば優先。無ければ general-purpose に**読み取り専用を指示** | ddd-review（検査軸・足切り基準） | 差分を DDD の観点でレビューし、実害シナリオ付きの指摘を返す |
+| テスター | general-purpose（テストのみ書き込み可） | qa-engineer（HUNT + テスト技法カタログ） | 作業ブリーフの不変条件・受け入れ基準を突くテストを追加・実行し、pass/fail を返す |
 
 レビュアーとテスターは実装完了後に**並列起動**する（1メッセージで2体同時に）。
 実装者は常に1体ずつ直列 — 同じ working tree を触るため並列にしない。
+
+### ペルソナスキルの解決
+
+サブエージェントは会話コンテキストもスキル一覧も共有しない前提で、
+**オーケストレーターがペルソナスキルの SKILL.md を絶対パスに解決し、
+「最初にこのファイルを Read して従え」とプロンプトに書く**:
+
+1. この SKILL.md と同じ親ディレクトリの `../<スキル名>/SKILL.md`（リポジトリ /
+   symlink 配置ならここで見つかる）
+2. 見つからなければ `.claude/skills/<スキル名>/SKILL.md`（プロジェクト）→
+   `~/.claude/skills/<スキル名>/SKILL.md`（グローバル）の順に探す
+
+どこにも無い場合はそのセクションをプロンプトから削る — 各テンプレートには
+ペルソナの要点（フォールバック指針）が内蔵されており、単体でも成立する。
 
 ## 手順
 
@@ -81,7 +102,9 @@ allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, AskUserQuestion
 1. **実装** — `templates/IMPLEMENTER.md` を雛形にプロンプトを組み、general-purpose
    エージェントを起動する（実行完了を待つ）。2周目以降は前サイクルの差し戻し内容
    （レビュー指摘・テスト失敗の要点と `git diff` の要約）をプロンプトに埋め込んだ
-   **新しい実装者**を起動する
+   **新しい実装者**を起動する。差し戻しが失敗テストの修正中心なら、ペルソナの
+   適用モードを software-engineer の FIX（再現テスト → 根本原因 → 最小修正）に
+   切り替えて指示する
 2. **レビュー + テスト（並列）** — 実装者の完了後、`templates/REVIEWER.md` と
    `templates/TESTER.md` からプロンプトを組み、2体を1メッセージで同時起動する。
    レビュアーには読み取り専用（ファイル変更禁止）を、テスターにはテストファイル
@@ -104,8 +127,12 @@ allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent, AskUserQuestion
    自己申告を鵜呑みにしない）
 2. 変更を1コミットにまとめる（`git add -A && git commit`。メッセージはタスク要約）。
    **push・リモート操作・デフォルトブランチへの直接コミットはしない**
-3. 最終報告: サイクル数、変更ファイル、テスト結果、採用/棄却したレビュー指摘、
-   残った Low 指摘、ブランチ名と確認方法（`git diff <base>...<branch>`）
+3. **ドメインブリーフの最新化** — 今回の変更が集約・不変条件・ユビキタス言語を
+   変えた場合（新しい状態遷移・ルールの追加等）は、domain-expert の REFRESH で
+   `domain-*.md` を更新する（ブリーフ無しで簡易抽出で進めたランでは提案だけする）
+4. 最終報告: サイクル数、変更ファイル、テスト結果、採用/棄却したレビュー指摘、
+   残った Low 指摘、ドメインブリーフの更新有無、ブランチ名と確認方法
+   （`git diff <base>...<branch>`）
 
 ## ガードレール
 
